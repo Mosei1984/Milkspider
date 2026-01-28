@@ -3,8 +3,11 @@
 **Quadruped robot (4 legs × 3 DOF) powered by Milk-V Duo 256M dual-core architecture**
 
 ![Version](https://img.shields.io/badge/version-3.1-blue)
+![Status](https://img.shields.io/badge/status-FINALIZED-brightgreen)
 ![FreeRTOS](https://img.shields.io/badge/Muscle-FreeRTOS-green)
 ![Linux](https://img.shields.io/badge/Brain-Linux-orange)
+
+> **✅ Milkspider v3.1 is finalized.** See [FINAL_BUILD.md](FINAL_BUILD.md) for build instructions.
 
 ---
 
