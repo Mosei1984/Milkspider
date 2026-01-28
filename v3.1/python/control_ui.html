@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spider Robot v3.1 Control</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 20px; color: #4ade80; }
+        
+        .status-bar {
+            background: #16213e;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .status-indicator {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-connected { background: #4ade80; }
+        .status-disconnected { background: #ef4444; }
+        
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        
+        .panel {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .panel h2 {
+            color: #60a5fa;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 10px;
+        }
+        
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: background 0.2s;
+        }
+        button:hover { background: #2563eb; }
+        button:active { background: #1d4ed8; }
+        button.danger { background: #ef4444; }
+        button.danger:hover { background: #dc2626; }
+        button.success { background: #22c55e; }
+        button.success:hover { background: #16a34a; }
+        button.mood { background: #8b5cf6; }
+        button.mood:hover { background: #7c3aed; }
+        
+        .btn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+        .btn-row { display: flex; justify-content: center; gap: 5px; margin: 5px 0; }
+        
+        input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+        }
+        input[type="text"], input[type="number"] {
+            background: #0f172a;
+            border: 1px solid #334155;
+            color: #eee;
+            padding: 8px 12px;
+            border-radius: 6px;
+            width: 100%;
+            margin: 5px 0;
+        }
+        
+        .servo-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 8px 0;
+        }
+        .servo-control label {
+            width: 80px;
+            font-size: 12px;
+        }
+        .servo-control input[type="range"] {
+            flex: 1;
+            margin: 0;
+        }
+        .servo-control span {
+            width: 50px;
+            text-align: right;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        
+        .log-panel {
+            background: #0f172a;
+            border-radius: 6px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry { margin: 2px 0; }
+        .log-tx { color: #4ade80; }
+        .log-rx { color: #60a5fa; }
+        .log-err { color: #ef4444; }
+        
+        .eye-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            max-width: 200px;
+            margin: 10px auto;
+        }
+        .eye-grid button { padding: 15px 10px; }
+        
+        .scan-display {
+            background: #0f172a;
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+        }
+        .scan-value {
+            font-size: 2rem;
+            color: #4ade80;
+        }
+        .scan-unit { color: #94a3b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🕷️ Spider Robot v3.1</h1>
+        
+        <div class="status-bar">
+            <div>
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">Disconnected</span>
+            </div>
+            <div>
+                <input type="text" id="wsUrl" value="ws://192.168.42.1:9000" style="width: 200px;">
+                <button onclick="connect()" id="connectBtn">Connect</button>
+            </div>
+        </div>
+        
+        <div class="grid">
+            <!-- E-STOP -->
+            <div class="panel">
+                <h2>⚠️ Emergency</h2>
+                <button class="danger" style="width: 100%; padding: 20px; font-size: 18px;" onclick="sendEstop()">
+                    E-STOP
+                </button>
+                <button class="success" style="width: 100%; margin-top: 10px;" onclick="sendResume()">
+                    Resume
+                </button>
+            </div>
+            
+            <!-- Eyes -->
+            <div class="panel">
+                <h2>👁️ Eyes</h2>
+                <div class="btn-row">
+                    <button class="mood" onclick="sendMood('normal')">Normal</button>
+                    <button class="mood" onclick="sendMood('happy')">Happy</button>
+                    <button class="mood" onclick="sendMood('angry')">Angry</button>
+                    <button class="mood" onclick="sendMood('sleepy')">Sleepy</button>
+                </div>
+                <div class="eye-grid">
+                    <button onclick="sendLook(-0.7, -0.5)">↖</button>
+                    <button onclick="sendLook(0, -0.7)">↑</button>
+                    <button onclick="sendLook(0.7, -0.5)">↗</button>
+                    <button onclick="sendLook(-0.7, 0)">←</button>
+                    <button onclick="sendLook(0, 0)">●</button>
+                    <button onclick="sendLook(0.7, 0)">→</button>
+                    <button onclick="sendLook(-0.7, 0.5)">↙</button>
+                    <button onclick="sendLook(0, 0.7)">↓</button>
+                    <button onclick="sendLook(0.7, 0.5)">↘</button>
+                </div>
+                <div class="btn-row">
+                    <button onclick="sendBlink()">Blink</button>
+                    <button onclick="sendWink('left')">Wink L</button>
+                    <button onclick="sendWink('right')">Wink R</button>
+                </div>
+            </div>
+            
+            <!-- Scan Servo -->
+            <div class="panel">
+                <h2>📡 Scan Servo (CH12)</h2>
+                <div class="servo-control">
+                    <label>Angle:</label>
+                    <input type="range" min="0" max="180" value="90" id="scanSlider" oninput="updateScan()">
+                    <span id="scanValue">90°</span>
+                </div>
+                <div class="btn-row">
+                    <button onclick="setScan(0)">0°</button>
+                    <button onclick="setScan(45)">45°</button>
+                    <button onclick="setScan(90)">90°</button>
+                    <button onclick="setScan(135)">135°</button>
+                    <button onclick="setScan(180)">180°</button>
+                </div>
+                <div class="scan-display" style="margin-top: 15px;">
+                    <div>Distance:</div>
+                    <div class="scan-value" id="distanceValue">---</div>
+                    <div class="scan-unit">mm</div>
+                    <button onclick="readDistance()" style="margin-top: 10px;">Read</button>
+                </div>
+            </div>
+            
+            <!-- Servos -->
+            <div class="panel">
+                <h2>🦿 Leg Servos</h2>
+                <div id="servoControls"></div>
+                <div class="btn-row" style="margin-top: 15px;">
+                    <button onclick="allNeutral()">All Neutral</button>
+                    <button onclick="getServos()">Refresh</button>
+                </div>
+            </div>
+            
+            <!-- Walking -->
+            <div class="panel">
+                <h2>🚶 Walking</h2>
+                <div class="btn-row">
+                    <label style="margin-right: 10px;">Gait:</label>
+                    <button id="btnTripod" class="success" onclick="setGait('tripod')">Tripod</button>
+                    <button id="btnWave" onclick="setGait('wave')">Wave</button>
+                </div>
+                <div class="btn-row">
+                    <label style="margin-right: 10px;">Speed:</label>
+                    <input type="range" min="0.3" max="2.0" step="0.1" value="1.0" id="speedSlider" style="width: 150px;">
+                    <span id="speedValue">1.0x</span>
+                </div>
+                <div class="eye-grid" style="max-width: 180px; margin: 15px auto;">
+                    <button onclick="walk('rotate_ccw')">↺</button>
+                    <button onclick="walk('forward')" style="background: #22c55e;">▲</button>
+                    <button onclick="walk('rotate_cw')">↻</button>
+                    <button onclick="walk('left')">◀</button>
+                    <button onclick="stopWalk()" class="danger">■</button>
+                    <button onclick="walk('right')">▶</button>
+                    <div></div>
+                    <button onclick="walk('backward')">▼</button>
+                    <div></div>
+                </div>
+                <div class="btn-row">
+                    <span id="walkStatus" style="color: #94a3b8;">Stopped</span>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="panel">
+                <h2>🎮 Quick Actions</h2>
+                <div class="btn-row">
+                    <button onclick="sendCmd({type:'status'})">Status</button>
+                    <button onclick="sendCmd({type:'get_servos'})">Get Servos</button>
+                </div>
+                <div style="margin-top: 15px;">
+                    <label>Custom JSON:</label>
+                    <input type="text" id="customCmd" placeholder='{"type":"status"}'>
+                    <button onclick="sendCustom()" style="width: 100%;">Send</button>
+                </div>
+            </div>
+            
+            <!-- Log -->
+            <div class="panel">
+                <h2>📋 Log</h2>
+                <div class="log-panel" id="logPanel"></div>
+                <button onclick="clearLog()" style="margin-top: 10px;">Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let servoValues = new Array(13).fill(1500);
+        
+        const LEG_NAMES = ['FR Coxa', 'FR Femur', 'FR Tibia', 
+                          'FL Coxa', 'FL Femur', 'FL Tibia',
+                          'RR Coxa', 'RR Femur', 'RR Tibia',
+                          'RL Coxa', 'RL Femur', 'RL Tibia',
+                          'Scan'];
+        
+        function log(msg, type = '') {
+            const panel = document.getElementById('logPanel');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry ' + type;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            panel.appendChild(entry);
+            panel.scrollTop = panel.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('logPanel').innerHTML = '';
+        }
+        
+        function updateStatus(connected) {
+            const indicator = document.getElementById('statusIndicator');
+            const text = document.getElementById('statusText');
+            const btn = document.getElementById('connectBtn');
+            
+            if (connected) {
+                indicator.className = 'status-indicator status-connected';
+                text.textContent = 'Connected';
+                btn.textContent = 'Disconnect';
+            } else {
+                indicator.className = 'status-indicator status-disconnected';
+                text.textContent = 'Disconnected';
+                btn.textContent = 'Connect';
+            }
+        }
+        
+        function connect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+                return;
+            }
+            
+            const url = document.getElementById('wsUrl').value;
+            log(`Connecting to ${url}...`);
+            
+            try {
+                ws = new WebSocket(url);
+                
+                ws.onopen = () => {
+                    log('Connected!', 'log-tx');
+                    updateStatus(true);
+                    sendCmd({type: 'status'});
+                };
+                
+                ws.onclose = () => {
+                    log('Disconnected', 'log-err');
+                    updateStatus(false);
+                };
+                
+                ws.onerror = (e) => {
+                    log('Connection error', 'log-err');
+                };
+                
+                ws.onmessage = (e) => {
+                    log(`RX: ${e.data}`, 'log-rx');
+                    try {
+                        const data = JSON.parse(e.data);
+                        handleResponse(data);
+                    } catch {}
+                };
+            } catch (e) {
+                log(`Error: ${e.message}`, 'log-err');
+            }
+        }
+        
+        function handleResponse(data) {
+            if (data.distance_mm !== undefined) {
+                document.getElementById('distanceValue').textContent = data.distance_mm;
+            }
+            if (data.servos) {
+                servoValues = data.servos;
+                updateServoDisplay();
+            }
+        }
+        
+        function sendCmd(cmd) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('Not connected!', 'log-err');
+                return;
+            }
+            const json = JSON.stringify(cmd);
+            log(`TX: ${json}`, 'log-tx');
+            ws.send(json);
+        }
+        
+        function sendCustom() {
+            const input = document.getElementById('customCmd').value;
+            try {
+                const cmd = JSON.parse(input);
+                sendCmd(cmd);
+            } catch {
+                log('Invalid JSON', 'log-err');
+            }
+        }
+        
+        // Eye commands
+        function sendMood(mood) { sendCmd({type: 'mood', mood: mood}); }
+        function sendLook(x, y) { sendCmd({type: 'look', x: x, y: y}); }
+        function sendBlink() { sendCmd({type: 'blink'}); }
+        function sendWink(eye) { sendCmd({type: 'wink', eye: eye}); }
+        
+        // E-Stop
+        function sendEstop() { sendCmd({type: 'estop'}); }
+        function sendResume() { sendCmd({cmd: 'resume'}); }
+        
+        // Scan
+        function updateScan() {
+            const angle = parseInt(document.getElementById('scanSlider').value);
+            document.getElementById('scanValue').textContent = angle + '°';
+            const us = Math.round(500 + (angle / 180) * 2000);
+            sendCmd({type: 'scan', us: us});
+        }
+        
+        function setScan(angle) {
+            document.getElementById('scanSlider').value = angle;
+            updateScan();
+        }
+        
+        function readDistance() {
+            sendCmd({type: 'distance'});
+        }
+        
+        // Servos
+        function initServoControls() {
+            const container = document.getElementById('servoControls');
+            for (let i = 0; i < 12; i++) {
+                const div = document.createElement('div');
+                div.className = 'servo-control';
+                div.innerHTML = `
+                    <label>CH${i} ${LEG_NAMES[i]}</label>
+                    <input type="range" min="500" max="2500" value="1500" 
+                           id="servo${i}" oninput="updateServo(${i})">
+                    <span id="servoVal${i}">1500</span>
+                `;
+                container.appendChild(div);
+            }
+        }
+        
+        function updateServo(ch) {
+            const value = parseInt(document.getElementById(`servo${ch}`).value);
+            document.getElementById(`servoVal${ch}`).textContent = value;
+            servoValues[ch] = value;
+            sendCmd({type: 'servo', channel: ch, us: value});
+        }
+        
+        function updateServoDisplay() {
+            for (let i = 0; i < 12; i++) {
+                const slider = document.getElementById(`servo${i}`);
+                const label = document.getElementById(`servoVal${i}`);
+                if (slider && servoValues[i]) {
+                    slider.value = servoValues[i];
+                    label.textContent = servoValues[i];
+                }
+            }
+        }
+        
+        function allNeutral() {
+            servoValues = new Array(13).fill(1500);
+            sendCmd({type: 'servos', us: servoValues});
+            updateServoDisplay();
+        }
+        
+        function getServos() {
+            sendCmd({type: 'get_servos'});
+        }
+        
+        // Walking
+        let currentGait = 'tripod';
+        let walkInterval = null;
+        let walkDirection = null;
+        
+        // Gait patterns (simplified - actual values from gait_library.py)
+        const NEUTRAL = 1500;
+        const LIFT = 1200;
+        const DOWN = 1700;
+        const FWD = 1650;
+        const BWD = 1350;
+        
+        const TRIPOD_PHASES = [
+            // Phase 0: Legs 0,2 (FR,RR) up+forward, Legs 1,3 (FL,RL) down+back
+            [FWD, LIFT, NEUTRAL, BWD, DOWN, NEUTRAL, FWD, LIFT, NEUTRAL, BWD, DOWN, NEUTRAL, NEUTRAL],
+            // Phase 1: All legs down, transition
+            [FWD, DOWN, NEUTRAL, BWD, DOWN, NEUTRAL, FWD, DOWN, NEUTRAL, BWD, DOWN, NEUTRAL, NEUTRAL],
+            // Phase 2: Legs 1,3 up+forward, Legs 0,2 down+back  
+            [BWD, DOWN, NEUTRAL, FWD, LIFT, NEUTRAL, BWD, DOWN, NEUTRAL, FWD, LIFT, NEUTRAL, NEUTRAL],
+            // Phase 3: All legs down
+            [BWD, DOWN, NEUTRAL, FWD, DOWN, NEUTRAL, BWD, DOWN, NEUTRAL, FWD, DOWN, NEUTRAL, NEUTRAL],
+        ];
+        
+        function setGait(gait) {
+            currentGait = gait;
+            document.getElementById('btnTripod').className = gait === 'tripod' ? 'success' : '';
+            document.getElementById('btnWave').className = gait === 'wave' ? 'success' : '';
+            log(`Gait: ${gait}`, 'log-tx');
+        }
+        
+        function walk(direction) {
+            walkDirection = direction;
+            document.getElementById('walkStatus').textContent = `Walking: ${direction}`;
+            document.getElementById('walkStatus').style.color = '#4ade80';
+            
+            if (walkInterval) clearInterval(walkInterval);
+            
+            let phase = 0;
+            const speed = parseFloat(document.getElementById('speedSlider').value);
+            const interval = Math.round(200 / speed);
+            
+            // Send first step immediately
+            sendWalkPhase(phase, direction);
+            
+            walkInterval = setInterval(() => {
+                phase = (phase + 1) % TRIPOD_PHASES.length;
+                sendWalkPhase(phase, direction);
+            }, interval);
+        }
+        
+        function sendWalkPhase(phase, direction) {
+            let servos = [...TRIPOD_PHASES[phase]];
+            
+            // Modify for direction
+            if (direction === 'backward') {
+                // Swap forward/backward values
+                for (let i = 0; i < 12; i += 3) {
+                    if (servos[i] === FWD) servos[i] = BWD;
+                    else if (servos[i] === BWD) servos[i] = FWD;
+                }
+            } else if (direction === 'left' || direction === 'rotate_ccw') {
+                // Left side forward, right side backward
+                servos[0] = BWD; servos[3] = FWD;
+                servos[6] = BWD; servos[9] = FWD;
+            } else if (direction === 'right' || direction === 'rotate_cw') {
+                // Right side forward, left side backward
+                servos[0] = FWD; servos[3] = BWD;
+                servos[6] = FWD; servos[9] = BWD;
+            }
+            
+            sendCmd({type: 'move', t_ms: 100, us: servos});
+        }
+        
+        function stopWalk() {
+            if (walkInterval) {
+                clearInterval(walkInterval);
+                walkInterval = null;
+            }
+            walkDirection = null;
+            document.getElementById('walkStatus').textContent = 'Stopped';
+            document.getElementById('walkStatus').style.color = '#94a3b8';
+            
+            // Return to neutral
+            allNeutral();
+        }
+        
+        document.getElementById('speedSlider').oninput = function() {
+            document.getElementById('speedValue').textContent = this.value + 'x';
+            if (walkDirection) {
+                walk(walkDirection); // Restart with new speed
+            }
+        };
+        
+        // Init
+        updateStatus(false);
+        initServoControls();
+    </script>
+</body>
+</html>

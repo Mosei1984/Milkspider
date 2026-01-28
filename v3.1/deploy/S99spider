@@ -1,0 +1,61 @@
+#!/bin/sh
+#
+# Spider Robot v3.1 - Autostart Script
+# Place in /etc/init.d/S99spider on Milk-V Duo
+#
+
+BRAIN_BIN="/root/brain_daemon"
+EYE_BIN="/root/eye_service"
+BRAIN_LOG="/tmp/brain.log"
+EYE_LOG="/tmp/eye.log"
+
+case "$1" in
+    start)
+        echo "Starting Spider Robot services..."
+        
+        # Start Brain Daemon
+        if [ -x "$BRAIN_BIN" ]; then
+            nohup $BRAIN_BIN > $BRAIN_LOG 2>&1 &
+            echo "  brain_daemon started (PID $!)"
+        else
+            echo "  ERROR: $BRAIN_BIN not found"
+        fi
+        
+        # Wait for brain to initialize
+        sleep 2
+        
+        # Start Eye Service
+        if [ -x "$EYE_BIN" ]; then
+            nohup $EYE_BIN > $EYE_LOG 2>&1 &
+            echo "  eye_service started (PID $!)"
+        else
+            echo "  WARNING: $EYE_BIN not found"
+        fi
+        ;;
+        
+    stop)
+        echo "Stopping Spider Robot services..."
+        killall brain_daemon eye_service 2>/dev/null
+        ;;
+        
+    restart)
+        $0 stop
+        sleep 1
+        $0 start
+        ;;
+        
+    status)
+        echo "Spider Robot status:"
+        ps | grep -E "(brain_daemon|eye_service)" | grep -v grep
+        echo ""
+        echo "Recent brain.log:"
+        tail -5 $BRAIN_LOG 2>/dev/null
+        ;;
+        
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac
+
+exit 0

@@ -1,0 +1,46 @@
+# ===== Build Artifacts =====
+build/
+*.o
+*.a
+*.so
+*.elf
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+_deps/
+
+# Binaries (keep fip_working.bin as reference)
+brain_linux/src/brain_daemon_riscv
+brain_linux/src/build/
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*~
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+venv/
+.venv/
+
+# ===== Logs =====
+*.log
+
+# ===== Temp & Backup =====
+*.tmp
+*.bak
+*.orig
+*.backup
+
+# ===== Calibration (may contain personal notes) =====
+# Review before committing
+~/.spider_calibration.json
+
+# ===== Local Overrides =====
+*.local.*
+local_*.py

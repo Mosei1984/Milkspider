@@ -1,0 +1,17 @@
+[Unit]
+Description=Spider Robot v3.1 Eye Service
+After=network.target spider-brain.service
+Wants=spider-brain.service
+
+[Service]
+Type=simple
+WorkingDirectory=/root
+ExecStart=/root/eye_service
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=spider-eye
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,146 @@
+# ===== Planning Packs (external resources, not project code) =====
+spider_v3_1_extra_packet/
+spider_v3_1_project_planning_pack/
+*.zip
+
+# ===== Build Artifacts =====
+build/
+*.o
+*.a
+*.so
+*.elf
+*.bin
+!fip_working.bin
+*.hex
+*.map
+*.lst
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+_deps/
+
+# ===== IDE & Editor =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.cproject
+.settings/
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.eggs/
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+venv/
+.venv/
+env/
+ENV/
+
+# ===== Logs & Temp =====
+*.log
+*.tmp
+*.temp
+*.bak
+*.cache
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Sensitive Data =====
+# SSH keys & credentials
+*.pem
+*.key
+*.crt
+*.p12
+id_rsa*
+id_ed25519*
+known_hosts
+authorized_keys
+
+# Config with passwords/tokens
+config.local.*
+*.secret
+*.secrets
+.env
+.env.*
+secrets.json
+credentials.json
+
+# WiFi/Network configs
+wpa_supplicant.conf
+wifi_config.*
+
+# Personal paths in configs
+local_config.py
+local_settings.py
+
+# Calibration with personal notes
+# (keep calibration.json but review before commit)
+
+# ===== User-Specific =====
+# Windows user paths
+**/Users/mosei/**
+**/Users/*/AppData/**
+**/.ssh/
+
+# WSL paths
+**/mnt/c/Users/**
+
+# Home directory references
+~/*
+$HOME/*
+
+# ===== Hardware-Specific =====
+# Device-specific configs
+device_config.json
+hardware_config.local.json
+
+# IP addresses / hostnames
+hosts.local
+ip_config.*
+
+# ===== SDK & Toolchains (large, user-specific) =====
+duo-sdk*/
+milkv-sdk/
+riscv-toolchain/
+gcc-riscv*/
+
+# ===== Temporary Test Files =====
+test_output/
+*.test.log
+debug_*.py
+scratch_*.py
+
+# ===== Documentation Drafts =====
+*.draft.md
+NOTES_PRIVATE.md
+TODO_PERSONAL.md
+
+# ===== Backup Files =====
+*.orig
+*.backup
+*_backup.*
+*.old
+
+# ===== Large Binary Files =====
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# Keep specific firmware
+!spider_v3_1_*.zip

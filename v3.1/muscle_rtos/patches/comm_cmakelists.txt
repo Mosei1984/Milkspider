@@ -1,0 +1,33 @@
+# Spider Robot v3.1 Muscle Runtime CMakeLists.txt (SDK v1)
+
+file(GLOB _SOURCES "src/${RUN_ARCH}/*.c")
+file(GLOB _DRIVER_SOURCES "src/${RUN_ARCH}/drivers/*.c")
+file(GLOB _SAFETY_SOURCES "src/${RUN_ARCH}/safety/*.c")
+
+# Combine all sources
+list(APPEND _SOURCES ${_DRIVER_SOURCES})
+list(APPEND _SOURCES ${_SAFETY_SOURCES})
+
+include_directories(include)
+include_directories(src/${RUN_ARCH})
+include_directories(src/${RUN_ARCH}/drivers)
+include_directories(src/${RUN_ARCH}/safety)
+
+if (BOARD MATCHES "milkv-duos")
+        list(APPEND _SOURCES "led_control/milkv_duos_io.c")
+elseif (BOARD MATCHES "milkv-duo256m")
+        list(APPEND _SOURCES "led_control/milkv_duo256m_io.c")
+elseif (BOARD MATCHES "milkv-duo")
+        list(APPEND _SOURCES "led_control/milkv_duo_io.c")
+endif()
+
+include_directories(${CMAKE_INSTALL_INC_PREFIX}/arch)
+include_directories(${CMAKE_INSTALL_INC_PREFIX}/common)
+include_directories(${CMAKE_INSTALL_INC_PREFIX}/kernel)
+include_directories(${CMAKE_INSTALL_INC_PREFIX}/driver/spinlock)
+include_directories(${CMAKE_INSTALL_INC_PREFIX}/driver/rtos_cmdqu)
+include_directories(${CMAKE_INSTALL_INC_PREFIX}/hal/config)
+include_directories(${CMAKE_INSTALL_INC_PREFIX}/hal/i2c)
+
+add_library(comm STATIC ${_SOURCES})
+install(TARGETS comm DESTINATION lib)
