@@ -1,6 +1,6 @@
 # 🕷️ Spider Robot v3.1
 
-**Hexapod robot powered by Milk-V Duo 256M dual-core architecture**
+**Quadruped robot (4 legs × 3 DOF) powered by Milk-V Duo 256M dual-core architecture**
 
 ![Version](https://img.shields.io/badge/version-3.1-blue)
 ![FreeRTOS](https://img.shields.io/badge/Muscle-FreeRTOS-green)
@@ -92,7 +92,7 @@ python python/demo_live.py
 ```
 v3.1/
 ├── brain_linux/        # Linux daemons (Brain + Eye Service)
-│   ├── brain_daemon/   # WebSocket server, mailbox comm
+│   ├── src/            # Brain Daemon (WebSocket :9000, Serial, Mailbox) ← CANONICAL
 │   └── eye_service/    # GC9D01 display driver, animations
 ├── muscle_rtos/        # FreeRTOS firmware
 │   └── src/            # I2C driver, PCA9685, mailbox handler

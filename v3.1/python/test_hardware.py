@@ -153,7 +153,7 @@ class HardwareTestSuite:
         if self.verbose:
             print(msg, end=end, flush=True)
     
-    def add_result(self, name: str, passed: bool, message: str = "", details: Dict = None):
+    def add_result(self, name: str, passed: bool, message: str = "", details: Optional[Dict] = None):
         result = TestResult(name, passed, message, details or {})
         self.results.append(result)
         return result

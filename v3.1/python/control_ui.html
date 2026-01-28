@@ -220,6 +220,40 @@
                 </div>
             </div>
             
+            <!-- Autonomous Scan -->
+            <div class="panel">
+                <h2>🔄 Autonomous Scan</h2>
+                <div class="btn-row">
+                    <button class="success" onclick="startScan()" id="scanStartBtn">Start Scan</button>
+                    <button class="danger" onclick="stopScan()">Stop</button>
+                    <button onclick="getScanStatus()">Status</button>
+                </div>
+                <div style="margin-top: 10px;">
+                    <div class="servo-control">
+                        <label>Min°:</label>
+                        <input type="number" value="20" min="0" max="90" id="scanMinDeg" style="width: 60px;">
+                        <label style="margin-left: 10px;">Max°:</label>
+                        <input type="number" value="160" min="90" max="180" id="scanMaxDeg" style="width: 60px;">
+                    </div>
+                    <div class="servo-control">
+                        <label>Step°:</label>
+                        <input type="number" value="10" min="1" max="30" id="scanStepDeg" style="width: 60px;">
+                        <label style="margin-left: 10px;">Rate Hz:</label>
+                        <input type="number" value="5" min="1" max="20" id="scanRateHz" style="width: 60px;">
+                    </div>
+                </div>
+                <div class="scan-display" style="margin-top: 10px;">
+                    <div id="scanStatusText" style="font-size: 12px; color: #94a3b8;">Stopped</div>
+                    <div style="margin-top: 5px;">
+                        <span style="font-size: 12px;">Angle: </span>
+                        <span id="scanAngle" class="scan-value" style="font-size: 1.2rem;">90</span>°
+                        <span style="margin-left: 15px; font-size: 12px;">Closest: </span>
+                        <span id="scanClosest" class="scan-value" style="font-size: 1.2rem;">---</span>mm
+                    </div>
+                    <div id="scanDataViz" style="margin-top: 10px; height: 60px; display: flex; align-items: flex-end; justify-content: center; gap: 2px;"></div>
+                </div>
+            </div>
+            
             <!-- Servos -->
             <div class="panel">
                 <h2>🦿 Leg Servos</h2>
@@ -368,6 +402,74 @@
                 servoValues = data.servos;
                 updateServoDisplay();
             }
+            // Scan controller responses
+            if (data.scan === 'started') {
+                document.getElementById('scanStatusText').textContent = 'Scanning...';
+                document.getElementById('scanStatusText').style.color = '#4ade80';
+                document.getElementById('scanStartBtn').textContent = 'Running...';
+                document.getElementById('scanStartBtn').disabled = true;
+            }
+            if (data.scan === 'stopped') {
+                document.getElementById('scanStatusText').textContent = 'Stopped';
+                document.getElementById('scanStatusText').style.color = '#94a3b8';
+                document.getElementById('scanStartBtn').textContent = 'Start Scan';
+                document.getElementById('scanStartBtn').disabled = false;
+            }
+            if (data.scan_running !== undefined) {
+                document.getElementById('scanStatusText').textContent = data.scan_running ? 'Scanning...' : 'Stopped';
+                document.getElementById('scanStatusText').style.color = data.scan_running ? '#4ade80' : '#94a3b8';
+                document.getElementById('scanAngle').textContent = data.angle || '90';
+                if (data.closest_dist > 0) {
+                    document.getElementById('scanClosest').textContent = data.closest_dist;
+                }
+            }
+            // Real-time scan data
+            if (data.type === 'scan_data') {
+                document.getElementById('scanAngle').textContent = data.angle;
+                if (data.distance > 0) {
+                    updateScanVisualization(data.angle, data.distance);
+                }
+            }
+            if (data.scan_data) {
+                renderScanData(data.scan_data);
+            }
+        }
+        
+        // Scan data visualization
+        let scanDataPoints = {};
+        
+        function updateScanVisualization(angle, distance) {
+            scanDataPoints[angle] = distance;
+            renderScanVisualization();
+        }
+        
+        function renderScanVisualization() {
+            const container = document.getElementById('scanDataViz');
+            container.innerHTML = '';
+            
+            const angles = Object.keys(scanDataPoints).map(Number).sort((a, b) => a - b);
+            if (angles.length === 0) return;
+            
+            const maxDist = Math.max(...Object.values(scanDataPoints).filter(d => d > 0), 500);
+            
+            for (const angle of angles) {
+                const dist = scanDataPoints[angle];
+                const height = dist > 0 ? Math.max(5, (dist / maxDist) * 50) : 2;
+                const color = dist < 200 ? '#ef4444' : dist < 500 ? '#f59e0b' : '#4ade80';
+                
+                const bar = document.createElement('div');
+                bar.style.cssText = `width: 6px; height: ${height}px; background: ${color}; border-radius: 2px;`;
+                bar.title = `${angle}°: ${dist}mm`;
+                container.appendChild(bar);
+            }
+        }
+        
+        function renderScanData(data) {
+            scanDataPoints = {};
+            for (const pt of data) {
+                scanDataPoints[pt.a] = pt.d;
+            }
+            renderScanVisualization();
         }
         
         function sendCmd(cmd) {
@@ -415,6 +517,33 @@
         
         function readDistance() {
             sendCmd({type: 'distance'});
+        }
+        
+        // Autonomous Scan
+        function startScan() {
+            const minDeg = parseInt(document.getElementById('scanMinDeg').value) || 20;
+            const maxDeg = parseInt(document.getElementById('scanMaxDeg').value) || 160;
+            const stepDeg = parseInt(document.getElementById('scanStepDeg').value) || 10;
+            const rateHz = parseInt(document.getElementById('scanRateHz').value) || 5;
+            
+            scanDataPoints = {};
+            renderScanVisualization();
+            
+            sendCmd({
+                type: 'scan_start',
+                min_deg: minDeg,
+                max_deg: maxDeg,
+                step_deg: stepDeg,
+                rate_hz: rateHz
+            });
+        }
+        
+        function stopScan() {
+            sendCmd({type: 'scan_stop'});
+        }
+        
+        function getScanStatus() {
+            sendCmd({type: 'scan_status'});
         }
         
         // Servos

@@ -30,6 +30,7 @@
 #include "eye_client.h"
 #include "distance_sensor.h"
 #include "serial_control.h"
+#include "scan_controller.h"
 #include "logger.h"
 
 extern "C" {
@@ -97,6 +98,10 @@ private:
     
     void handleEyeCommand(const std::string& cmd);
     void handleDistanceCommand(const std::string& cmd);
+    void handleScanCommand(const std::string& cmd);
+    
+    void initScanController();
+    void setScanServoAngle(int angle_deg);
     
     void onSerialServo(int channel, uint16_t us);
     void onSerialServos(const uint16_t* us, int count);
@@ -112,6 +117,7 @@ private:
     EyeClient m_eye_client;
     DistanceSensor m_distance_sensor;
     SerialControl m_serial_control;
+    ScanController m_scan_controller;
     
     std::string m_serial_port = DEFAULT_SERIAL_PORT;
     int m_serial_baud = DEFAULT_SERIAL_BAUD;
@@ -187,6 +193,9 @@ bool BrainDaemon::init() {
         LOG_WARN("Brain", "Serial control not available - continuing without it");
     }
     
+    // Initialize scan controller
+    initScanController();
+    
     LOG_INFO("Brain", "All systems initialized");
     return true;
 }
@@ -255,6 +264,7 @@ void BrainDaemon::run() {
         acceptClients();
         processClients();
         m_serial_control.tick();
+        m_scan_controller.tick();
         tickHeartbeat();
         tickEyeReconnect();
         tickWatchdogLog();
@@ -580,31 +590,45 @@ static int servoNameToChannel(const char* name) {
     return -1;
 }
 
+// Helper to check if JSON contains a type field with given value
+static bool hasType(const std::string& json, const char* type_value) {
+    // Match both "type":"value" and "type": "value" (with optional space)
+    std::string pattern1 = std::string("\"type\":\"") + type_value + "\"";
+    std::string pattern2 = std::string("\"type\": \"") + type_value + "\"";
+    return json.find(pattern1) != std::string::npos || 
+           json.find(pattern2) != std::string::npos;
+}
+
+static bool hasCmd(const std::string& json, const char* cmd_value) {
+    std::string pattern1 = std::string("\"cmd\":\"") + cmd_value + "\"";
+    std::string pattern2 = std::string("\"cmd\": \"") + cmd_value + "\"";
+    return json.find(pattern1) != std::string::npos || 
+           json.find(pattern2) != std::string::npos;
+}
+
 void BrainDaemon::handleCommand(const std::string& cmd) {
     LOG_DEBUG("Brain", "Received: %s", cmd.c_str());
     
-    if (cmd.find("\"cmd\":\"estop\"") != std::string::npos ||
-        cmd.find("\"type\":\"estop\"") != std::string::npos) {
+    if (hasCmd(cmd, "estop") || hasType(cmd, "estop")) {
         g_estop.store(true);
         m_mailbox.sendEstop();
         wsBroadcast("{\"status\":\"estop_activated\"}");
         return;
     }
     
-    if (cmd.find("\"cmd\":\"stop\"") != std::string::npos) {
+    if (hasCmd(cmd, "stop") || hasType(cmd, "stop")) {
         g_estop.store(false);
         wsBroadcast("{\"status\":\"stopped\"}");
         return;
     }
     
-    if (cmd.find("\"cmd\":\"resume\"") != std::string::npos ||
-        cmd.find("\"cmd\":\"clear_estop\"") != std::string::npos) {
+    if (hasCmd(cmd, "resume") || hasCmd(cmd, "clear_estop") || hasType(cmd, "resume")) {
         g_estop.store(false);
         wsBroadcast("{\"status\":\"resumed\"}");
         return;
     }
     
-    if (cmd.find("\"type\":\"pose\"") != std::string::npos) {
+    if (hasType(cmd, "pose")) {
         uint16_t flags = FLAG_CLAMP_ENABLE;
         if (g_estop.load()) flags |= FLAG_ESTOP;
         
@@ -615,8 +639,7 @@ void BrainDaemon::handleCommand(const std::string& cmd) {
         return;
     }
     
-    if (cmd.find("\"type\":\"status\"") != std::string::npos ||
-        cmd.find("\"cmd\":\"status\"") != std::string::npos) {
+    if (hasType(cmd, "status") || hasCmd(cmd, "status")) {
         char status[256];
         snprintf(status, sizeof(status),
             "{\"status\":\"ok\",\"seq\":%u,\"tx_count\":%u,\"ring_w\":%u,\"ring_r\":%u,\"clients\":%zu}",
@@ -627,7 +650,7 @@ void BrainDaemon::handleCommand(const std::string& cmd) {
         return;
     }
     
-    if (cmd.find("\"type\":\"servo\"") != std::string::npos) {
+    if (hasType(cmd, "servo")) {
         int channel = -1;
         char name[32] = {0};
         if (parseJsonString(cmd, "name", name, sizeof(name))) {
@@ -661,7 +684,7 @@ void BrainDaemon::handleCommand(const std::string& cmd) {
         return;
     }
     
-    if (cmd.find("\"type\":\"servos\"") != std::string::npos) {
+    if (hasType(cmd, "servos")) {
         uint16_t values[SERVO_COUNT_TOTAL];
         int count = parseJsonIntArray(cmd, "us", values, SERVO_COUNT_TOTAL);
         
@@ -687,7 +710,7 @@ void BrainDaemon::handleCommand(const std::string& cmd) {
         return;
     }
     
-    if (cmd.find("\"type\":\"get_servos\"") != std::string::npos) {
+    if (hasType(cmd, "get_servos")) {
         std::string resp = "{\"servos\":[";
         for (int i = 0; i < SERVO_COUNT_TOTAL; i++) {
             if (i > 0) resp += ",";
@@ -698,7 +721,7 @@ void BrainDaemon::handleCommand(const std::string& cmd) {
         return;
     }
     
-    if (cmd.find("\"type\":\"move\"") != std::string::npos) {
+    if (hasType(cmd, "move")) {
         int t_ms = parseJsonInt(cmd, "t_ms", 0);
         if (t_ms < 0) t_ms = 0;
         
@@ -728,23 +751,20 @@ void BrainDaemon::handleCommand(const std::string& cmd) {
     }
     
     // Eye commands - forward to Eye Service
-    if (cmd.find("\"type\":\"eye\"") != std::string::npos ||
-        cmd.find("\"type\":\"look\"") != std::string::npos ||
-        cmd.find("\"type\":\"blink\"") != std::string::npos ||
-        cmd.find("\"type\":\"wink\"") != std::string::npos ||
-        cmd.find("\"type\":\"mood\"") != std::string::npos) {
+    if (hasType(cmd, "eye") || hasType(cmd, "look") || hasType(cmd, "blink") ||
+        hasType(cmd, "wink") || hasType(cmd, "mood")) {
         handleEyeCommand(cmd);
         return;
     }
     
     // Distance sensor command
-    if (cmd.find("\"type\":\"distance\"") != std::string::npos) {
+    if (hasType(cmd, "distance")) {
         handleDistanceCommand(cmd);
         return;
     }
     
-    // Scan servo command (CH12)
-    if (cmd.find("\"type\":\"scan\"") != std::string::npos) {
+    // Scan servo manual command (CH12): {"type":"scan","us":1500}
+    if (hasType(cmd, "scan")) {
         int us = parseJsonInt(cmd, "us", -1);
         if (us < 0) {
             wsBroadcast("{\"error\":\"missing_us\"}");
@@ -765,6 +785,13 @@ void BrainDaemon::handleCommand(const std::string& cmd) {
         return;
     }
     
+    // Autonomous scan controller commands
+    if (hasType(cmd, "scan_start") || hasType(cmd, "scan_stop") ||
+        hasType(cmd, "scan_status") || hasType(cmd, "scan_get_data")) {
+        handleScanCommand(cmd);
+        return;
+    }
+    
     wsBroadcast("{\"error\":\"unknown_command\"}");
 }
 
@@ -778,7 +805,7 @@ void BrainDaemon::handleEyeCommand(const std::string& cmd) {
     };
     
     // look: {"type":"look","x":0.0,"y":0.0} or {"type":"eye","look":{"x":0.0,"y":0.0}}
-    if (cmd.find("\"type\":\"look\"") != std::string::npos) {
+    if (hasType(cmd, "look")) {
         float x = 0.0f, y = 0.0f;
         const char* px = strstr(cmd.c_str(), "\"x\":");
         const char* py = strstr(cmd.c_str(), "\"y\":");
@@ -794,7 +821,7 @@ void BrainDaemon::handleEyeCommand(const std::string& cmd) {
     }
     
     // blink: {"type":"blink"}
-    if (cmd.find("\"type\":\"blink\"") != std::string::npos) {
+    if (hasType(cmd, "blink")) {
         if (m_eye_client.blink()) {
             wsBroadcast("{\"status\":\"ok\",\"eye\":\"blink\"}");
         } else {
@@ -804,7 +831,7 @@ void BrainDaemon::handleEyeCommand(const std::string& cmd) {
     }
     
     // wink: {"type":"wink","eye":"left|right"}
-    if (cmd.find("\"type\":\"wink\"") != std::string::npos) {
+    if (hasType(cmd, "wink")) {
         std::string eye = "left";
         if (cmd.find("\"eye\":\"right\"") != std::string::npos) {
             eye = "right";
@@ -818,7 +845,7 @@ void BrainDaemon::handleEyeCommand(const std::string& cmd) {
     }
     
     // mood: {"type":"mood","mood":"normal|angry|happy|sleepy"}
-    if (cmd.find("\"type\":\"mood\"") != std::string::npos) {
+    if (hasType(cmd, "mood")) {
         std::string mood = "normal";
         if (cmd.find("\"mood\":\"angry\"") != std::string::npos) mood = "angry";
         else if (cmd.find("\"mood\":\"happy\"") != std::string::npos) mood = "happy";
@@ -833,7 +860,7 @@ void BrainDaemon::handleEyeCommand(const std::string& cmd) {
     }
     
     // generic eye command: {"type":"eye","action":"..."}
-    if (cmd.find("\"type\":\"eye\"") != std::string::npos) {
+    if (hasType(cmd, "eye")) {
         if (cmd.find("\"action\":\"idle_on\"") != std::string::npos) {
             if (m_eye_client.setIdleEnabled(true)) {
                 wsBroadcast("{\"status\":\"ok\",\"eye\":\"idle_on\"}");
@@ -1099,6 +1126,121 @@ int BrainDaemon::onSerialDistance() {
         return (int)distance_mm;
     }
     return -1;
+}
+
+void BrainDaemon::initScanController() {
+    // Configure scan profile
+    ScanController::ScanProfile profile;
+    profile.min_deg = 20;
+    profile.max_deg = 160;
+    profile.step_deg = 10;
+    profile.rate_hz = 5;
+    profile.dwell_ms = 80;
+    m_scan_controller.setProfile(profile);
+    
+    // Set callback to move scan servo
+    m_scan_controller.setServoCallback([this](int angle_deg) {
+        setScanServoAngle(angle_deg);
+    });
+    
+    // Set callback to read distance
+    m_scan_controller.setDistanceCallback([this]() -> int {
+        if (!m_distance_available) return -1;
+        uint16_t distance_mm = 0;
+        DistanceSensor::Status status = m_distance_sensor.readRange(distance_mm);
+        if (status == DistanceSensor::Status::OK) {
+            return (int)distance_mm;
+        }
+        return -1;
+    });
+    
+    // Set callback for new scan data (optional: broadcast to clients)
+    m_scan_controller.setDataCallback([this](const ScanController::ScanPoint& point) {
+        // Optionally broadcast scan data to WebSocket clients
+        char msg[128];
+        snprintf(msg, sizeof(msg),
+            "{\"type\":\"scan_data\",\"angle\":%d,\"distance\":%d}",
+            point.angle_deg, point.distance_mm);
+        wsBroadcast(msg);
+    });
+    
+    LOG_INFO("Scan", "Controller initialized (not started)");
+}
+
+void BrainDaemon::setScanServoAngle(int angle_deg) {
+    // Convert angle (0-180) to microseconds (500-2500)
+    int us = 500 + (angle_deg * 2000 / 180);
+    if (us < SERVO_PWM_MIN_US) us = SERVO_PWM_MIN_US;
+    if (us > SERVO_PWM_MAX_US) us = SERVO_PWM_MAX_US;
+    
+    m_current_servos[SERVO_CHANNEL_SCAN] = (uint16_t)us;
+    
+    uint16_t flags = FLAG_CLAMP_ENABLE | FLAG_SCAN_ENABLE;
+    if (g_estop.load()) flags |= FLAG_ESTOP;
+    PosePacket31 pkt = buildPosePacket(0, flags, m_current_servos);
+    sendPosePacket(pkt);
+}
+
+void BrainDaemon::handleScanCommand(const std::string& cmd) {
+    // scan_start: {"type":"scan_start"} or {"type":"scan_start","profile":{...}}
+    if (hasType(cmd, "scan_start")) {
+        // Optionally update profile from command
+        int min_deg = parseJsonInt(cmd, "min_deg", -1);
+        int max_deg = parseJsonInt(cmd, "max_deg", -1);
+        int step_deg = parseJsonInt(cmd, "step_deg", -1);
+        int rate_hz = parseJsonInt(cmd, "rate_hz", -1);
+        
+        if (min_deg >= 0 || max_deg >= 0 || step_deg >= 0 || rate_hz >= 0) {
+            ScanController::ScanProfile profile = m_scan_controller.getProfile();
+            if (min_deg >= 0) profile.min_deg = min_deg;
+            if (max_deg >= 0) profile.max_deg = max_deg;
+            if (step_deg >= 0) profile.step_deg = step_deg;
+            if (rate_hz >= 0) profile.rate_hz = rate_hz;
+            m_scan_controller.setProfile(profile);
+        }
+        
+        m_scan_controller.start();
+        wsBroadcast("{\"status\":\"ok\",\"scan\":\"started\"}");
+        return;
+    }
+    
+    // scan_stop: {"type":"scan_stop"}
+    if (hasType(cmd, "scan_stop")) {
+        m_scan_controller.stop();
+        wsBroadcast("{\"status\":\"ok\",\"scan\":\"stopped\"}");
+        return;
+    }
+    
+    // scan_status: {"type":"scan_status"}
+    if (hasType(cmd, "scan_status")) {
+        const auto& data = m_scan_controller.getScanData();
+        char msg[256];
+        snprintf(msg, sizeof(msg),
+            "{\"scan_running\":%s,\"angle\":%d,\"closest_dist\":%d,\"closest_angle\":%d,\"points\":%zu}",
+            m_scan_controller.isRunning() ? "true" : "false",
+            m_scan_controller.getCurrentAngle(),
+            m_scan_controller.getClosestDistance(),
+            m_scan_controller.getClosestAngle(),
+            data.size());
+        wsBroadcast(msg);
+        return;
+    }
+    
+    // scan_data: {"type":"scan_data"} - get full scan data
+    if (hasType(cmd, "scan_get_data")) {
+        const auto& data = m_scan_controller.getScanData();
+        std::string msg = "{\"scan_data\":[";
+        for (size_t i = 0; i < data.size(); i++) {
+            if (i > 0) msg += ",";
+            char pt[48];
+            snprintf(pt, sizeof(pt), "{\"a\":%d,\"d\":%d}",
+                data[i].angle_deg, data[i].distance_mm);
+            msg += pt;
+        }
+        msg += "]}";
+        wsBroadcast(msg);
+        return;
+    }
 }
 
 static void print_usage(const char* prog) {

@@ -1,7 +1,8 @@
 # Spider Robot v3.1 - Project Status
 
 **Last Updated:** 2026-01-28  
-**Build Status:** ✅ Firmware deployed and tested on Milk-V Duo 256M
+**Build Status:** ✅ Firmware deployed and tested on Milk-V Duo 256M  
+**Architecture:** Quadruped (4 legs × 3 DOF = 12 servos + 1 scan servo)
 
 ---
 
@@ -45,13 +46,18 @@
 
 ### Brain Daemon (Linux Big Core)
 - [x] WebSocket server on port 9000
-- [x] **Serial interface on /dev/ttyS0 @ 115200** (NEW)
+- [x] Serial interface on /dev/ttyS0 @ 115200
 - [x] Commands: servo, servos, move, scan, estop, resume, status, get_servos
 - [x] Mailbox communication via `/dev/cvi-rtos-cmdqu`
 - [x] Shared memory writer for PosePacket31 (42 bytes with CRC16)
 - [x] Structured logging with timestamps
 - [x] Eye Service reconnection on disconnect
 - [x] Statistics logging (uptime, packets, clients)
+- [x] **Autonomous Scan Controller** (NEW)
+  - scan_start, scan_stop, scan_status, scan_get_data commands
+  - Configurable sweep profile (min/max angle, step, rate)
+  - Real-time scan data broadcast to WebSocket clients
+  - Distance reading at each angle position
 
 ### Eye Service (Linux Big Core)
 - [x] GC9D01 dual-display SPI driver
@@ -108,12 +114,19 @@ Response: `OK [value]` or `ERR <message>`
 | Single Servo | `{"type":"servo","channel":0,"us":1500}` | `{"status":"ok","channel":0,"us":1500}` |
 | All Servos | `{"type":"servos","us":[...13 values...]}` | `{"status":"ok","count":13}` |
 | Move | `{"type":"move","t_ms":100,"us":[...]}` | `{"status":"ok","t_ms":100,"seq":N}` |
-| Scan | `{"type":"scan","us":1500}` | `{"status":"ok","scan_us":1500}` |
+| Scan Servo | `{"type":"scan","us":1500}` | `{"status":"ok","scan_us":1500}` |
 | E-STOP | `{"type":"estop"}` | `{"status":"estop_activated"}` |
 | Distance | `{"type":"distance"}` | `{"distance_mm":123,"status":"ok"}` |
 | Eye Look | `{"type":"look","x":0.5,"y":-0.3}` | `{"status":"ok","eye":"look"}` |
 | Eye Mood | `{"type":"mood","mood":"happy"}` | `{"status":"ok","eye":"mood"}` |
 | Eye Blink | `{"type":"blink"}` | `{"status":"ok","eye":"blink"}` |
+| **Scan Start** | `{"type":"scan_start"}` | `{"status":"ok","scan":"started"}` |
+| **Scan Start (custom)** | `{"type":"scan_start","min_deg":20,"max_deg":160,"step_deg":10,"rate_hz":5}` | `{"status":"ok","scan":"started"}` |
+| **Scan Stop** | `{"type":"scan_stop"}` | `{"status":"ok","scan":"stopped"}` |
+| **Scan Status** | `{"type":"scan_status"}` | `{"scan_running":true,"angle":90,"closest_dist":250,...}` |
+| **Scan Get Data** | `{"type":"scan_get_data"}` | `{"scan_data":[{"a":20,"d":500},...]}` |
+
+**Note:** When scan is running, real-time data is broadcast: `{"type":"scan_data","angle":30,"distance":450}`
 
 ---
 
@@ -126,6 +139,11 @@ Open `python/control_ui.html` in any browser.
 - Eye control (moods, look direction, blink/wink)
 - Scan servo slider (0-180°)
 - Distance sensor readout
+- **Autonomous Scan panel** (NEW)
+  - Start/Stop autonomous scanning
+  - Configure sweep profile (min/max angle, step, rate)
+  - Real-time distance visualization
+  - Live angle and closest obstacle display
 - All 12 leg servo sliders
 - Walking controls (Tripod/Wave gait, direction pad, speed)
 - Command log (TX/RX)
@@ -167,14 +185,16 @@ elif action == Action.BACKUP:
 ```
 v3.1/
 ├── brain_linux/
-│   ├── src/                    # Brain Daemon source (main implementation)
-│   │   ├── main.cpp            # WebSocket + Serial server
-│   │   ├── serial_control.cpp  # Serial command interface
+│   ├── src/                    # Brain Daemon source (CANONICAL - Master Prompt §1)
+│   │   ├── main.cpp            # WebSocket (port 9000) + Serial server
+│   │   ├── serial_control.cpp  # Serial command interface (/dev/ttyS0)
 │   │   ├── mailbox.cpp         # RTOS mailbox communication
 │   │   ├── shared_memory.cpp   # Ring buffer for motion packets
 │   │   ├── eye_client.cpp      # Eye Service client
 │   │   ├── distance_sensor.cpp # VL53L0X driver
-│   │   └── logger.h            # Structured logging
+│   │   ├── logger.h            # Structured logging
+│   │   └── CMakeLists.txt      # Build with toolchain-milkv-duo.cmake
+│   ├── brain_daemon/           # ARCHIVED - superseded skeleton, DO NOT USE
 │   └── eye_service/            # Eye animation service
 ├── muscle_rtos/                # FreeRTOS small core firmware
 │   ├── app_main_v1.c           # Main entry point
@@ -274,13 +294,28 @@ ssh root@$DUO_IP "sync && reboot"
 
 ## Next Steps (Hardware Required)
 
-1. [ ] Wire VL53L0X distance sensor (I2C2)
-2. [ ] Wire GC9D01 dual displays (SPI2)
-3. [ ] Connect PCA9685 + servos (when delivered)
-4. [ ] Run `python test_hardware.py`
+### Immediate (Hardware Pending)
+1. [ ] Connect PCA9685 servo driver board (when delivered)
+2. [ ] Wire VL53L0X distance sensor to I2C2 (GP2/GP3)
+3. [ ] Wire GC9D01 dual displays to SPI2
+
+### Testing & Calibration
+4. [ ] Run `python test_hardware.py` to verify all components
 5. [ ] Calibrate servos with `python calibration.py`
 6. [ ] Test walking with `python demo_walk.py`
-7. [ ] Test autonomous mode with `python demo_autonomous.py`
+
+### Advanced Features
+7. [ ] Test autonomous scanning with Web UI or `python demo_autonomous.py`
+8. [ ] Tune obstacle avoidance thresholds in `obstacle_avoidance.py`
+9. [ ] Fine-tune gait parameters in `gait_library.py`
+
+### Software Complete ✅
+- Brain Daemon with WebSocket + Serial
+- FreeRTOS Muscle Runtime with PCA9685 driver
+- Eye Service with mood animations
+- Autonomous Scan Controller
+- Python client library
+- Web Control UI
 
 ---
 
@@ -290,9 +325,12 @@ ssh root@$DUO_IP "sync && reboot"
 - [x] Eye commands (mood, look, blink, wink) via WebSocket
 - [x] Scan servo commands via WebSocket
 - [x] Motion packet transmission to RTOS core
-- [x] Mailbox communication (no buffer errors)
+- [x] Mailbox communication (heartbeat tx working)
 - [x] Auto-start on boot via S99spider
 - [x] Cross-compilation for RISC-V with Milk-V SDK
 - [x] Serial control interface (/dev/ttyS0 @ 115200)
 - [x] Web Control UI (control_ui.html)
 - [x] Walking gait commands via UI
+- [x] **Autonomous Scan Controller** - sweep and broadcast working
+- [x] **Hardware test suite** - 20/21 tests pass (distance sensor not wired)
+- [x] **JSON parsing** - tolerant of spaces in JSON (e.g., `"type": "status"`)

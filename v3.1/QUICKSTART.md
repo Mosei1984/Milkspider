@@ -279,7 +279,10 @@ Uses distance sensor for obstacle avoidance. Add `--no-simulate` to use real sen
 | `resume` | `{"type":"resume"}` | Resume motion |
 | `status` | `{"type":"status"}` | Get system status |
 | `distance` | `{"type":"distance"}` | Read VL53L0X |
-| `scan` | `{"type":"scan","us":1500}` | Set scan servo |
+| `scan` | `{"type":"scan","us":1500}` | Set scan servo manually |
+| `scan_start` | `{"type":"scan_start"}` | Start autonomous scanning |
+| `scan_stop` | `{"type":"scan_stop"}` | Stop autonomous scanning |
+| `scan_status` | `{"type":"scan_status"}` | Get scan controller status |
 | `look` | `{"type":"look","x":0.5,"y":0}` | Move eye pupils |
 | `blink` | `{"type":"blink"}` | Trigger blink |
 | `mood` | `{"type":"mood","mood":"happy"}` | Set eye mood |

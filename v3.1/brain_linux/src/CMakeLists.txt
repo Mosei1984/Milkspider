@@ -16,6 +16,7 @@ set(SOURCES
     eye_client.cpp
     distance_sensor.cpp
     serial_control.cpp
+    scan_controller.cpp
     ${COMMON_DIR}/crc16_ccitt_false.c
 )
 
