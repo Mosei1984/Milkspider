@@ -1,7 +1,8 @@
 # Spider Robot v3.1 - Quickstart Guide
 
 **Platform:** Milk-V Duo 256M  
-**Architecture:** FreeRTOS (Muscle) + Linux (Brain + Eye)
+**Architecture:** FreeRTOS (Muscle) + Linux (Brain + Eye)  
+**Status:** ✅ FINALIZED — See [FINAL_BUILD.md](FINAL_BUILD.md)
 
 ---
 
@@ -93,8 +94,8 @@ This produces `fip.bin` (~405KB) containing the FreeRTOS firmware.
 ./build_and_deploy.sh linux
 ```
 This produces:
-- `build/brain_daemon` - WebSocket server for servo/sensor control
-- `build/eye_service` - Eye animation service
+- `build/brain_linux/src/brain_daemon` - WebSocket server (port 9000)
+- `build/brain_linux/eye_service/eye_service` - Eye animation service
 
 ### Build All
 ```bash
@@ -122,7 +123,7 @@ ssh root@192.168.42.1 "sync && reboot"
 
 ### Deploy Daemons
 ```bash
-scp build/brain_daemon build/eye_service root@192.168.42.1:/root/
+scp build/brain_linux/src/brain_daemon build/brain_linux/eye_service/eye_service root@192.168.42.1:/root/
 ```
 
 ### Install as systemd Services (Optional)
@@ -202,16 +203,15 @@ EYE TESTS
   Blink/Wink... OK
 
 DISTANCE SENSOR TESTS
-  Single reading... 523mm OK
-  Multi-sample... OK (avg: 518mm)
+  Reading... SKIP (hardware not connected)
 
 ============================================================
 TEST REPORT
-  Total Tests: 24
-  Passed:      24
-  Failed:      0
+  Total Tests: 21
+  Passed:      20
+  Failed:      1
 
-  *** ALL TESTS PASSED ***
+  Distance sensor requires VL53L0X wiring to I2C2
 ```
 
 ### Troubleshooting
