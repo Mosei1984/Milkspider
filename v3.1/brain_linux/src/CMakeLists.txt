@@ -5,8 +5,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Common include directory
-set(COMMON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../common")
+# Common include directory - use parent's COMMON_INCLUDE_DIR if available, else compute
+if(NOT DEFINED COMMON_INCLUDE_DIR)
+    set(COMMON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../common")
+else()
+    set(COMMON_DIR "${COMMON_INCLUDE_DIR}")
+endif()
 
 # Source files
 set(SOURCES

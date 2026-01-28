@@ -1,16 +1,11 @@
 # Brain Linux components for Milk-V Duo 256M
 #
 # ARCHITECTURE NOTE (Master Prompt §1):
-# The canonical Brain implementation is in src/ (NOT brain_daemon/).
-# brain_daemon/ contains an earlier skeleton that was superseded.
-# Build src/ directly using its own CMakeLists.txt and toolchain file.
+# - brain_linux/src/     = CANONICAL Brain Daemon (WebSocket :9000, Serial, IPC)
+# - brain_linux/eye_service/ = Eye animation service (SPI displays)
+# - brain_linux/archive/brain_daemon_skeleton/ = ARCHIVED, DO NOT USE
 #
-# Build commands:
-#   cd src && mkdir build && cd build
-#   cmake .. -DCMAKE_TOOLCHAIN_FILE=../toolchain-milkv-duo.cmake
-#   make -j4
+# Both components are built by this CMakeLists.txt when invoked from root.
 
+add_subdirectory(src)
 add_subdirectory(eye_service)
-
-# NOTE: brain_daemon/ is archived and should be removed or merged into src/
-# add_subdirectory(brain_daemon)  # DISABLED - use src/ instead

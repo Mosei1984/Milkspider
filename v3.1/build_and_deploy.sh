@@ -105,10 +105,11 @@ build_linux() {
         cmake ..
     fi
     
-    make -j$(nproc) brain_daemon eye_service
+    make -j$(nproc)
     
     log_info "Build complete:"
-    ls -la brain_daemon eye_service 2>/dev/null || ls -la */brain_daemon */eye_service 2>/dev/null
+    # Binaries are in brain_linux/src/ and brain_linux/eye_service/ subdirs
+    find "$BUILD_DIR" -type f \( -name "brain_daemon" -o -name "eye_service" \) -executable 2>/dev/null | head -5
 }
 
 deploy_freertos() {

@@ -91,11 +91,14 @@ python python/demo_live.py
 
 ```
 v3.1/
-├── brain_linux/        # Linux daemons (Brain + Eye Service)
-│   ├── src/            # Brain Daemon (WebSocket :9000, Serial, Mailbox) ← CANONICAL
-│   └── eye_service/    # GC9D01 display driver, animations
+├── brain_linux/        # Linux daemons
+│   ├── src/            # Brain Daemon (WebSocket :9000, Serial, IPC) ← CANONICAL
+│   ├── eye_service/    # GC9D01 display driver, animations
+│   └── archive/        # Archived skeleton code, DO NOT USE
 ├── muscle_rtos/        # FreeRTOS firmware
-│   └── src/            # I2C driver, PCA9685, mailbox handler
+│   ├── app_main_v1.c   # Muscle entry point (copied to SDK for build)
+│   ├── drivers/        # I2C, PCA9685 drivers
+│   └── safety/         # Watchdog, failsafe
 ├── common/             # Shared headers (protocols, packets)
 ├── python/             # Client library & demos
 │   ├── spider_client.py      # WebSocket client
@@ -106,7 +109,9 @@ v3.1/
 ├── docs/               # Documentation
 ├── tests/              # Test scripts
 ├── deploy/             # Deployment scripts & configs
-├── fip.bin             # Compiled FreeRTOS firmware
+├── archive/            # Archived firmware history
+├── fip_working.bin     # Deployed FreeRTOS firmware (~401KB)
+├── fip.bin             # Build output (overwritten by build script)
 ├── QUICKSTART.md       # Getting started guide
 └── STATUS.md           # Feature status tracking
 ```

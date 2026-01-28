@@ -6,8 +6,8 @@ set(CMAKE_SYSTEM_PROCESSOR riscv64)
 
 # Toolchain paths - adjust TOOLCHAIN_PATH to your SDK installation
 set(TOOLCHAIN_PATH "$ENV{MILKV_SDK_PATH}" CACHE PATH "Path to Milk-V SDK toolchain")
-if(NOT TOOLCHAIN_PATH)
-    set(TOOLCHAIN_PATH "/opt/milkv/duo-sdk/riscv64-linux-musl-x86_64")
+if(NOT TOOLCHAIN_PATH OR TOOLCHAIN_PATH STREQUAL "")
+    set(TOOLCHAIN_PATH "/opt/milkv/duo-sdk/gcc/riscv64-linux-musl-x86_64")
 endif()
 
 set(TOOLCHAIN_PREFIX "riscv64-unknown-linux-musl-")

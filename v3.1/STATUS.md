@@ -185,17 +185,18 @@ elif action == Action.BACKUP:
 ```
 v3.1/
 ├── brain_linux/
-│   ├── src/                    # Brain Daemon source (CANONICAL - Master Prompt §1)
+│   ├── src/                    # Brain Daemon source (CANONICAL)
 │   │   ├── main.cpp            # WebSocket (port 9000) + Serial server
 │   │   ├── serial_control.cpp  # Serial command interface (/dev/ttyS0)
 │   │   ├── mailbox.cpp         # RTOS mailbox communication
 │   │   ├── shared_memory.cpp   # Ring buffer for motion packets
 │   │   ├── eye_client.cpp      # Eye Service client
 │   │   ├── distance_sensor.cpp # VL53L0X driver
+│   │   ├── scan_controller.cpp # Autonomous scanning
 │   │   ├── logger.h            # Structured logging
-│   │   └── CMakeLists.txt      # Build with toolchain-milkv-duo.cmake
-│   ├── brain_daemon/           # ARCHIVED - superseded skeleton, DO NOT USE
-│   └── eye_service/            # Eye animation service
+│   │   └── CMakeLists.txt      # Build config
+│   ├── eye_service/            # Eye animation service
+│   └── archive/                # ARCHIVED code, DO NOT USE
 ├── muscle_rtos/                # FreeRTOS small core firmware
 │   ├── app_main_v1.c           # Main entry point
 │   ├── drivers/                # I2C, PCA9685 drivers
