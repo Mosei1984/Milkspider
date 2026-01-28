@@ -43,9 +43,9 @@ echo.
 echo [3/3] Build complete!
 echo.
 echo Binaries:
-dir /b brain_linux\brain_daemon\brain_daemon 2>nul
+dir /b brain_linux\src\brain_daemon 2>nul
 dir /b brain_linux\eye_service\eye_service 2>nul
 echo.
 echo Deploy to Milk-V Duo:
-echo   scp brain_linux/brain_daemon/brain_daemon root@milkv-duo:/usr/local/bin/
+echo   scp brain_linux/src/brain_daemon root@milkv-duo:/usr/local/bin/
 echo   scp brain_linux/eye_service/eye_service root@milkv-duo:/usr/local/bin/

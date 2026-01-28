@@ -28,7 +28,7 @@ ssh ${DUO_USER}@${DUO_HOST} "mkdir -p ${DEPLOY_DIR}/bin ${DEPLOY_DIR}/python ${D
 # Deploy binaries
 echo "[3/5] Deploying binaries..."
 BINARIES=(
-    "build/brain_linux/brain_daemon/brain_daemon"
+    "build/brain_linux/src/brain_daemon"
     "build/brain_linux/eye_service/eye_service"
 )
 for bin in "${BINARIES[@]}"; do
